@@ -1,0 +1,15 @@
+# Core dependencies
+fastapi
+uvicorn[standard]
+pydantic[email]
+pydantic-settings
+
+# Security / Authentication
+passlib[bcrypt]
+python-jose[cryptography]
+bcrypt
+
+# Database (Tortoise ORM)
+tortoise-orm
+asyncpg # For PostgreSQL, if you choose to use it. Or mysqlclient for MySQL, etc.
+aerich
