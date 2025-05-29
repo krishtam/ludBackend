@@ -13,3 +13,6 @@ bcrypt
 tortoise-orm
 asyncpg # For PostgreSQL, if you choose to use it. Or mysqlclient for MySQL, etc.
 aerich
+
+# Question Generation
+mathgenerator

@@ -9,6 +9,8 @@ from ludora_backend.app.api.v1.endpoints import users as user_profile_router
 from ludora_backend.app.api.v1.endpoints import progress as learning_progress_router
 from ludora_backend.app.api.v1.endpoints import shop as shop_router
 from ludora_backend.app.api.v1.endpoints import inventory as inventory_router
+from ludora_backend.app.api.v1.endpoints import questions as questions_router
+from ludora_backend.app.api.v1.endpoints import quizzes as quizzes_router
 from ludora_backend.app.core.db import TORTOISE_ORM_CONFIG # Import config directly for lifespan
 from tortoise import Tortoise
 
@@ -45,6 +47,12 @@ app.include_router(shop_router.router, prefix="/api/v1/shop", tags=["Shop"])
 
 # Inventory router
 app.include_router(inventory_router.router, prefix="/api/v1/inventory", tags=["Inventory"])
+
+# Question router
+app.include_router(questions_router.router, prefix="/api/v1/q", tags=["Questions & Topics"]) # Using /q as a shorter prefix
+
+# Quiz router
+app.include_router(quizzes_router.router, prefix="/api/v1/quizzes", tags=["Quizzes"])
 
 
 # Placeholder for root endpoint, can be expanded later

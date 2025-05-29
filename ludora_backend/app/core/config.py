@@ -21,7 +21,10 @@ class Settings(BaseSettings):
         "app.models.progress",
         "app.models.item",
         "app.models.inventory",
-        "app.models.purchase"
+        "app.models.purchase",
+        "app.models.topic",
+        "app.models.question",
+        "app.models.quiz"
     ] # Add aerich.models for migrations and new models
 
     class Config:

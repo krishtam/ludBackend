@@ -12,3 +12,11 @@ class ItemType(str, Enum):
     TICKET = "ticket"
     CONSUMABLE = "consumable"
     COLLECTIBLE = "collectible"
+
+class QuestionType(str, Enum):
+    """
+    Defines the types of questions.
+    """
+    MATH_GENERATOR = "math_generator"
+    CUSTOM_TEMPLATE = "custom_template" # For word problems with randomized variables
+    CUSTOM_STATIC = "custom_static"   # Manually created, fixed questions
