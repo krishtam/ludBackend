@@ -16,3 +16,12 @@ aerich
 
 # Question Generation
 mathgenerator
+
+# Rate Limiting
+slowapi
+
+# Testing
+pytest
+pytest-asyncio
+httpx  # For async HTTP requests to the test client
+# faker # Optional: for generating fake data in tests

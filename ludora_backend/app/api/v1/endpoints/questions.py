@@ -1,9 +1,10 @@
 """
 Question and Topic endpoints for Ludora backend.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request # Added Request
 from typing import List, Optional
 
+from ludora_backend.app.main import limiter # Import the limiter instance
 from ludora_backend.app.models.user import User # For auth if needed, not strictly for now
 from ludora_backend.app.models.topic import Topic
 from ludora_backend.app.models.question import Question
@@ -17,7 +18,8 @@ router = APIRouter()
 
 # Topic Endpoints (Admin/Helper)
 @router.post("/topics", response_model=TopicRead, tags=["Topics"])
-async def create_topic(topic_data: TopicCreate): # Add auth dependency later if needed
+# @limiter.limit("...") # Example: Add if admin endpoints also need limiting
+async def create_topic(request: Request, topic_data: TopicCreate): # Add auth dependency later if needed
     """
     Creates a new topic. (Admin/Helper endpoint)
     """
@@ -28,7 +30,8 @@ async def create_topic(topic_data: TopicCreate): # Add auth dependency later if 
     return new_topic
 
 @router.get("/topics", response_model=List[TopicRead], tags=["Topics"])
-async def list_topics(): # Add auth dependency later if needed
+# @limiter.limit("...")
+async def list_topics(request: Request): # Add auth dependency later if needed
     """
     Lists all topics. (Admin/Helper endpoint)
     """
@@ -36,7 +39,8 @@ async def list_topics(): # Add auth dependency later if needed
 
 # Question Endpoints
 @router.post("/questions", response_model=QuestionRead, tags=["Questions"])
-async def create_custom_question(question_data: QuestionCreate): # Add auth dependency later if needed
+# @limiter.limit("...")
+async def create_custom_question(request: Request, question_data: QuestionCreate): # Add auth dependency later if needed
     """
     Creates a new custom question. (Admin/Helper endpoint for custom questions)
     """
@@ -49,7 +53,9 @@ async def create_custom_question(question_data: QuestionCreate): # Add auth depe
     return new_question
 
 @router.get("/questions/generate", response_model=QuestionRead, tags=["Questions"])
+@limiter.limit("30/minute")
 async def get_generated_question(
+    request: Request, # Added Request parameter
     topic_id: Optional[int] = None,
     difficulty: Optional[int] = Query(None, ge=1, le=5), # Keep difficulty for future use
     question_type: QuestionType = Query(QuestionType.MATH_GENERATOR) # Default to MATH_GENERATOR

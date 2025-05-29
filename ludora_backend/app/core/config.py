@@ -24,7 +24,9 @@ class Settings(BaseSettings):
         "app.models.purchase",
         "app.models.topic",
         "app.models.question",
-        "app.models.quiz"
+        "app.models.quiz",
+        "app.models.minigame", # Added minigame model
+        "app.models.leaderboard" # Added leaderboard model
     ] # Add aerich.models for migrations and new models
 
     class Config:

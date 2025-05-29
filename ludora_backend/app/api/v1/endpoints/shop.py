@@ -1,10 +1,11 @@
 """
 Shop endpoints for Ludora backend.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request # Added Request
 from typing import List
 
 from tortoise.transactions import atomic
+from ludora_backend.app.main import limiter # Import the limiter instance
 
 from ludora_backend.app.models.user import User
 from ludora_backend.app.models.profile import UserProfile
@@ -17,7 +18,8 @@ from ludora_backend.app.api.dependencies import get_current_active_user
 router = APIRouter()
 
 @router.get("/items", response_model=List[ItemRead])
-async def list_shop_items():
+# @limiter.limit("...") # Example: Add if this endpoint also needs limiting
+async def list_shop_items(request: Request): # Added Request
     """
     Lists all items available in the shop.
     """
@@ -25,7 +27,9 @@ async def list_shop_items():
 
 @router.post("/items/{item_id}/purchase", response_model=PurchaseRead)
 @atomic() # Ensures all database operations within are part of a single transaction
+@limiter.limit("15/minute")
 async def purchase_item(
+    request: Request, # Added Request
     item_id: int,
     purchase_data: PurchaseCreate,
     current_user: User = Depends(get_current_active_user)

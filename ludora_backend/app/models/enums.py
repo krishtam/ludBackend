@@ -20,3 +20,21 @@ class QuestionType(str, Enum):
     MATH_GENERATOR = "math_generator"
     CUSTOM_TEMPLATE = "custom_template" # For word problems with randomized variables
     CUSTOM_STATIC = "custom_static"   # Manually created, fixed questions
+
+class ScoreType(str, Enum):
+    """
+    Defines the types of scores tracked on leaderboards.
+    """
+    QUIZ_OVERALL = "quiz_overall"
+    MINIGAME_HIGH_SCORE = "minigame_high_score"
+    OVERALL_XP = "overall_xp"
+    TOPIC_PROFICIENCY = "topic_proficiency"
+
+class Timeframe(str, Enum):
+    """
+    Defines the timeframes for leaderboards.
+    """
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    ALL_TIME = "all_time"

@@ -1,7 +1,7 @@
 """
 Quiz endpoints for Ludora backend.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request # Added Request
 from typing import List, Optional
 from datetime import datetime, timezone # Ensure timezone is imported
 import random # For random selection
@@ -19,12 +19,15 @@ from ludora_backend.app.schemas.quiz import QuizRead, QuizCreateRequest, QuizSub
 from ludora_backend.app.api.dependencies import get_current_active_user
 from ludora_backend.app.services.question_generator import generate_random_math_question
 from ludora_backend.app.models.enums import QuestionType
+from ludora_backend.app.main import limiter # Import the limiter instance
 
 router = APIRouter()
 
 @router.post("/quizzes/generate", response_model=QuizRead)
 @atomic()
+@limiter.limit("10/minute")
 async def generate_quiz(
+    request: Request, # Added Request parameter
     quiz_params: QuizCreateRequest,
     current_user: User = Depends(get_current_active_user)
 ):
@@ -117,7 +120,8 @@ async def generate_quiz(
 
 
 @router.get("/quizzes/{quiz_id}", response_model=QuizRead)
-async def get_quiz(quiz_id: int, current_user: User = Depends(get_current_active_user)):
+# @limiter.limit("...") # Example: Add if this endpoint also needs limiting
+async def get_quiz(request: Request, quiz_id: int, current_user: User = Depends(get_current_active_user)):
     """
     Retrieves a specific quiz by its ID for the currently authenticated user.
     """
@@ -137,7 +141,9 @@ async def get_quiz(quiz_id: int, current_user: User = Depends(get_current_active
 
 @router.post("/quizzes/{quiz_id}/submit", response_model=QuizRead)
 @atomic()
+# @limiter.limit("...") # Example: Add if this endpoint also needs limiting
 async def submit_quiz(
+    request: Request, # Added Request parameter
     quiz_id: int,
     submission_data: QuizSubmit,
     current_user: User = Depends(get_current_active_user)
