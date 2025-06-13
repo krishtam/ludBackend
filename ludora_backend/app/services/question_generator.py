@@ -3,123 +3,147 @@ Service for generating math questions using the mathgenerator library.
 """
 import mathgenerator
 import random
+from typing import Optional, List, Dict, Any # Added type hints
 
-# Cache the list of available generators if possible, or fetch as needed.
-# Be mindful of how mathgenerator loads its list, especially if it's dynamic.
-# For now, we assume get_gen_list() is efficient enough for occasional calls.
+from ludora_backend.app.models.enums import QuestionType
+from ludora_backend.app.models.question import Question
+from ludora_backend.app.models.topic import Topic
+from ludora_backend.app.schemas.ai_models import WordProblemInput
+from ludora_backend.app.services.ai_models.word_problem_generator import generate_ai_word_problem
+
+# Cache for mathgenerator problem IDs
+_MATHGENERATOR_PROBLEM_IDS: List[int] = []
 try:
-    # Attempt to get the list of generator IDs.
-    # mathgenerator problem IDs are typically integers from 1 to N.
-    # Some IDs might be deprecated or removed over time.
-    # The structure of get_gen_list() might vary by mathgenerator version.
-    # Assuming it returns a list of dicts or objects with an 'id' attribute or similar.
-    # For this example, we'll assume it returns a list of problem_id integers directly
-    # or that we can extract them.
-    # If get_gen_list() returns dicts like {'id': problem_id, 'name': 'problem_name', ...}
-    # then: gen_list = [item['id'] for item in mathgenerator.get_gen_list()]
-    # If it's just a list of IDs: gen_list = mathgenerator.get_gen_list()
-    
-    # Based on mathgenerator's current structure, get_gen_list() returns a list of lists/tuples
-    # like: [[id, name, example_problem_without_solution, example_problem_with_solution], ...]
-    # So, we need to extract the IDs.
-    _MATHGENERATOR_PROBLEM_IDS = [item[0] for item in mathgenerator.get_gen_list()]
+    # Corrected based on previous findings: mathgenerator.getGenList()
+    if hasattr(mathgenerator, 'getGenList'):
+        problem_list_from_lib = mathgenerator.getGenList()
+        if problem_list_from_lib:
+            _MATHGENERATOR_PROBLEM_IDS = [item[0] for item in problem_list_from_lib if isinstance(item, (list, tuple)) and len(item) > 0]
+    if not _MATHGENERATOR_PROBLEM_IDS and hasattr(mathgenerator, 'get_gen_list'): # Fallback
+        problem_list_from_lib = mathgenerator.get_gen_list()
+        if problem_list_from_lib:
+             _MATHGENERATOR_PROBLEM_IDS = [item[0] for item in problem_list_from_lib if isinstance(item, (list, tuple)) and len(item) > 0]
     if not _MATHGENERATOR_PROBLEM_IDS:
-        # Fallback if list is empty for some reason
-        _MATHGENERATOR_PROBLEM_IDS = list(range(1, 121)) # Default to a known range if needed
-except Exception:
-    # Fallback in case get_gen_list() fails or changes structure
-    _MATHGENERATOR_PROBLEM_IDS = list(range(1, 121)) # Assuming 120 problems as a rough estimate
+        print("Warning: Could not populate _MATHGENERATOR_PROBLEM_IDS from library. Using fallback range.")
+        _MATHGENERATOR_PROBLEM_IDS = list(range(0, 126)) # Based on observed output (0-125)
+except Exception as e:
+    print(f"Warning: Error initializing mathgenerator problem IDs: {e}. Using fallback range.")
+    _MATHGENERATOR_PROBLEM_IDS = list(range(0, 126))
 
-def generate_math_question_by_id(problem_id: int) -> dict | None:
+
+def _generate_math_question_from_mathgenerator_id(problem_id: int) -> Optional[Dict[str, str]]:
     """
     Generates a math question for a specific problem_id using mathgenerator.
     Returns a dictionary like {"problem": "...", "solution": "..."} or None if ID is invalid.
+    Uses genById as per previous findings.
     """
     try:
-        # mathgenerator.generate_context(problem_id) is expected to return:
-        # (problem_text_without_solution, solution_text, context_text_if_any)
-        # We are interested in problem_text and solution_text.
-        # Note: Some mathgenerator functions might return problem with solution embedded.
-        # The library's consistency can vary. Let's assume generate_context is the way.
-        
-        # generate_context might not exist directly.
-        # The typical usage is:
-        # problem, solution = mathgenerator.generate_problem(problem_id)
-        # For a context-based one if available:
-        # context = mathgenerator.generate_context(problem_id)
-        # For now, we'll use the standard problem generation.
-        # It seems generate_context is not a standard function in mathgenerator.
-        # The primary function is generate_problem(id, *args)
-        
-        # Let's assume generate_problem is the target.
-        # It typically returns: problem, solution
-        problem, solution = mathgenerator.generate_problem(problem_id)
-        if problem and solution:
-            return {"problem": str(problem), "solution": str(solution)}
+        if hasattr(mathgenerator, 'genById'):
+            problem, solution = mathgenerator.genById(problem_id)
+            if problem and solution:
+                return {"problem": str(problem), "solution": str(solution)}
+        else: # Fallback for older assumption, though genById is more likely correct
+             problem, solution = mathgenerator.generate_problem(problem_id) # type: ignore
+             if problem and solution:
+                return {"problem": str(problem), "solution": str(solution)}
         return None
-    except IndexError: # mathgenerator raises IndexError for invalid problem_id
+    except IndexError:
+        print(f"Info: mathgenerator problem_id {problem_id} not found (IndexError).")
         return None
-    except Exception: # Catch other potential errors from mathgenerator
+    except Exception as e:
+        print(f"Error generating math_question for id {problem_id}: {e}")
         return None
 
-def generate_random_math_question(topic_code: int | None = None) -> dict | None:
+async def get_or_create_question_from_mathgenerator(
+    mathgen_problem_id: Optional[int] = None,
+    topic_id_for_new_question: Optional[int] = None,
+    difficulty_for_new_question: Optional[int] = None
+) -> Optional[Question]:
     """
-    Generates a random math question.
-    If topic_code (which is a mathgenerator problem_id here) is provided,
-    it tries to generate from that specific ID. Otherwise, picks a random ID.
-    Returns {"problem_id": id, "problem": "...", "solution": "..."} or None.
+    Fetches an existing question by mathgenerator_problem_id or generates a new one.
+    If generated, it's saved to the database.
     """
-    selected_problem_id = None
-    
-    if topic_code is not None:
-        if topic_code in _MATHGENERATOR_PROBLEM_IDS:
-            selected_problem_id = topic_code
-        else:
-            # Optionally, log that the specific topic_code was invalid
-            # and we are falling back to random.
-            pass # Fall through to random selection
+    selected_problem_id = mathgen_problem_id
 
-    if selected_problem_id is None:
+    if selected_problem_id is None: # Pick a random one if no specific ID is given
         if not _MATHGENERATOR_PROBLEM_IDS:
-            return None # No problem IDs available
+            print("Error: _MATHGENERATOR_PROBLEM_IDS is empty. Cannot select random math problem.")
+            return None
         selected_problem_id = random.choice(_MATHGENERATOR_PROBLEM_IDS)
 
-    question_data = generate_math_question_by_id(selected_problem_id)
-    
-    if question_data:
-        return {
-            "problem_id": selected_problem_id,
-            "problem": question_data["problem"],
-            "solution": question_data["solution"]
-        }
+    # Try to find an existing question with this mathgenerator ID first (if one was determined)
+    if selected_problem_id is not None:
+        existing_question = await Question.filter(mathgenerator_problem_id=selected_problem_id).first()
+        if existing_question:
+            await existing_question.fetch_related('topic')
+            return existing_question
+
+    # If no specific ID or no existing question, generate, save, and return
+    if selected_problem_id is not None:
+        generated_data = _generate_math_question_from_mathgenerator_id(selected_problem_id)
+        if generated_data:
+            # Check again if this text combination already exists to avoid near-duplicates
+            # if somehow the mathgenerator_problem_id wasn't unique enough or not set previously
+            existing_by_text = await Question.filter(
+                question_text=generated_data["problem"],
+                answer_text=generated_data["solution"],
+                question_type=QuestionType.MATH_GENERATOR
+            ).first()
+            if existing_by_text:
+                 await existing_by_text.fetch_related('topic')
+                 return existing_by_text
+
+            new_question = await Question.create(
+                topic_id=topic_id_for_new_question,
+                difficulty_level=difficulty_for_new_question or random.randint(1, 3),
+                question_text=generated_data["problem"],
+                answer_text=generated_data["solution"],
+                question_type=QuestionType.MATH_GENERATOR,
+                mathgenerator_problem_id=selected_problem_id,
+            )
+            await new_question.fetch_related('topic')
+            return new_question
     return None
 
-# Example usage (can be removed or kept for testing)
-if __name__ == "__main__":
-    print("Specific question (ID 5):")
-    q1 = generate_math_question_by_id(5)
-    if q1:
-        print(f"  Problem: {q1['problem']}")
-        print(f"  Solution: {q1['solution']}")
-    else:
-        print("  Failed to generate question for ID 5.")
 
-    print("\nRandom question:")
-    q2 = generate_random_math_question()
-    if q2:
-        print(f"  ID: {q2['problem_id']}")
-        print(f"  Problem: {q2['problem']}")
-        print(f"  Solution: {q2['solution']}")
-    else:
-        print("  Failed to generate a random question.")
+async def get_or_create_question_from_ai_word_problem(
+    topic_id: int, # Topic context is important for word problems
+    difficulty_level: int,
+    keywords: Optional[List[str]] = None
+) -> Optional[Question]:
+    """
+    Generates a word problem using AI, saves it, and returns it.
+    """
+    topic = await Topic.get_or_none(id=topic_id)
+    if not topic:
+        print(f"Error: Topic with ID {topic_id} not found for AI word problem generation.")
+        return None
 
-    print("\nRandom question from specific ID (e.g., 10) if valid:")
-    q3 = generate_random_math_question(topic_code=10)
-    if q3:
-        print(f"  ID: {q3['problem_id']}")
-        print(f"  Problem: {q3['problem']}")
-        print(f"  Solution: {q3['solution']}")
-    else:
-        print("  Failed to generate question for specific ID 10 (it might be invalid or list is small).")
-    
-    print(f"\nAvailable mathgenerator problem IDs ({len(_MATHGENERATOR_PROBLEM_IDS)}): {_MATHGENERATOR_PROBLEM_IDS[:10]}...")
+    wp_input = WordProblemInput(
+        topic=topic.name, # Use topic name for prompt context
+        keywords=keywords or [], # Pass keywords if any
+        # prompt_prefix: can be customized, e.g. based on difficulty
+        # max_length: can be customized
+    )
+
+    ai_response = await generate_ai_word_problem(wp_input)
+
+    if "Error:" in ai_response.generated_problem_text or not ai_response.generated_problem_text.strip():
+        print(f"AI word problem generation failed or returned empty: {ai_response.generated_problem_text}")
+        return None
+
+    # Check for duplicates by text if desired, though AI generation aims for novelty
+    # existing_question = await Question.filter(question_text=ai_response.generated_problem_text, question_type=QuestionType.AI_WORD_PROBLEM).first()
+    # if existing_question:
+    #    await existing_question.fetch_related('topic')
+    #    return existing_question
+
+    new_question = await Question.create(
+        topic_id=topic_id,
+        difficulty_level=difficulty_level,
+        question_text=ai_response.generated_problem_text,
+        answer_text="Answer to be determined by user or future AI step.", # Placeholder answer
+        question_type=QuestionType.AI_WORD_PROBLEM,
+    )
+    await new_question.fetch_related('topic')
+    return new_question

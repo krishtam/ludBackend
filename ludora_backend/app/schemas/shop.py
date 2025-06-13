@@ -38,6 +38,15 @@ class ItemRead(ItemBase):
 
     class Config:
         orm_mode = True
+
+# Paginated Response Schema for Items
+class PaginatedItemRead(BaseModel):
+    total: int = Field(..., description="Total number of items available.")
+    items: List[ItemRead] = Field(..., description="List of items for the current page.")
+    page: int = Field(..., description="Current page number.")
+    size: int = Field(..., description="Number of items per page.")
+    # Optional: Can add pages (total_pages) if needed
+    # pages: Optional[int] = Field(None, description="Total number of pages.")
         # If 'metadata_' from the model is used, and we want 'metadata' in the schema output,
         # Pydantic v2 prefers using alias in the field definition itself (as done in ItemBase)
         # or using `alias_generator` in Config if there's a systematic transformation.

@@ -19,7 +19,7 @@ def list_problems():
                 if not name.startswith('_'):
                     print(f"  {name}")
             return
-        
+
         if not problem_list:
             print("No problems found or the problem list function returned an empty list.")
             return
@@ -42,7 +42,7 @@ def list_problems():
                     print(f"Entry {item_index} (raw format): {problem_details}")
             except Exception as e:
                 print(f"Error processing entry {item_index} ('{problem_details}'): {e}")
-        
+
         print("\n==========================================")
         print(f"Total problems found: {len(problem_list)}")
 

@@ -14,7 +14,7 @@ async def test_user_signup_success(client: AsyncClient):
     }
     response = await client.post("/api/v1/auth/signup", json=signup_data)
     assert response.status_code == 200 # Assuming 200 OK for successful creation from your app
-    
+
     user_data = response.json()
     assert user_data["username"] == signup_data["username"]
     assert user_data["email"] == signup_data["email"]
@@ -35,7 +35,7 @@ async def test_user_signup_duplicate_username(client: AsyncClient, db_setup_modu
         "email": "user1@example.com",
         "password": "password123"
     })
-    
+
     # Second user with same username
     response = await client.post("/api/v1/auth/signup", json={
         "username": "duplicate_user", # Duplicate username
@@ -53,7 +53,7 @@ async def test_user_signup_duplicate_email(client: AsyncClient, db_setup_module)
         "email": "duplicate@example.com", # Duplicate email
         "password": "password123"
     })
-    
+
     # Second user with same email
     response = await client.post("/api/v1/auth/signup", json={
         "username": "user_B",
@@ -73,11 +73,11 @@ async def test_user_login_success(client: AsyncClient):
     # Create user first
     signup_response = await client.post("/api/v1/auth/signup", json=signup_data)
     assert signup_response.status_code == 200
-    
+
     # Attempt login
     login_data = {"username": signup_data["username"], "password": signup_data["password"]}
     response = await client.post("/api/v1/auth/token", data=login_data) # OAuth2 expects form data
-    
+
     assert response.status_code == 200
     token_data = response.json()
     assert "access_token" in token_data
@@ -92,10 +92,10 @@ async def test_user_login_incorrect_password(client: AsyncClient):
         "password": "correctPassword123"
     }
     await client.post("/api/v1/auth/signup", json=signup_data)
-    
+
     login_data = {"username": signup_data["username"], "password": "incorrectPassword"}
     response = await client.post("/api/v1/auth/token", data=login_data)
-    
+
     assert response.status_code == 401 # Unauthorized
     assert "Incorrect username or password" in response.json()["message"]
 
@@ -103,7 +103,7 @@ async def test_user_login_nonexistent_user(client: AsyncClient):
     """Test login for a user that does not exist."""
     login_data = {"username": "nonexistent_user", "password": "anypassword"}
     response = await client.post("/api/v1/auth/token", data=login_data)
-    
+
     assert response.status_code == 401 # Unauthorized
     assert "Incorrect username or password" in response.json()["message"]
 
@@ -112,7 +112,7 @@ async def test_token_refresh_success(client: AsyncClient):
     # 1. Signup and Login to get initial tokens
     signup_data = {"username": "refresh_user", "email": "refresh@example.com", "password": "refreshPassword123"}
     await client.post("/api/v1/auth/signup", json=signup_data)
-    
+
     login_data = {"username": signup_data["username"], "password": signup_data["password"]}
     login_response = await client.post("/api/v1/auth/token", data=login_data)
     initial_tokens = login_response.json()
@@ -122,7 +122,7 @@ async def test_token_refresh_success(client: AsyncClient):
     # 2. Attempt to refresh token
     refresh_payload = {"refresh_token_str": initial_refresh_token} # Matches Body(..., embed=True)
     response_refresh = await client.post("/api/v1/auth/token/refresh", json=refresh_payload)
-    
+
     assert response_refresh.status_code == 200
     new_tokens = response_refresh.json()
     assert "access_token" in new_tokens
@@ -134,7 +134,7 @@ async def test_token_refresh_invalid_token(client: AsyncClient):
     """Test token refresh with an invalid or expired refresh token."""
     refresh_payload = {"refresh_token_str": "this.is.an.invalid.refresh.token"}
     response_refresh = await client.post("/api/v1/auth/token/refresh", json=refresh_payload)
-    
+
     assert response_refresh.status_code == 401 # Unauthorized
     assert "Invalid refresh token or missing subject" in response_refresh.json()["message"]
 
@@ -153,7 +153,7 @@ async def test_token_refresh_invalid_token(client: AsyncClient):
 #     # Access protected route
 #     headers = {"Authorization": f"Bearer {access_token}"}
 #     # Assuming /api/v1/users/me/profile is a protected route that returns profile info
-#     response_me = await client.get("/api/v1/users/me/profile", headers=headers) 
+#     response_me = await client.get("/api/v1/users/me/profile", headers=headers)
 #     assert response_me.status_code == 200
 #     assert response_me.json()["user_id"] == user_id # Assuming ProfileRead schema has user_id
 #     assert response_me.json()["email"] == signup_data["email"] # UserRead has email, ProfileRead might from user

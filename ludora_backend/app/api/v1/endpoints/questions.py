@@ -4,22 +4,26 @@ Question and Topic endpoints for Ludora backend.
 from fastapi import APIRouter, Depends, HTTPException, Query, Request # Added Request
 from typing import List, Optional
 
-from ludora_backend.app.main import limiter # Import the limiter instance
+from ludora_backend.app.core.limiter import limiter # Corrected import
 from ludora_backend.app.models.user import User # For auth if needed, not strictly for now
 from ludora_backend.app.models.topic import Topic
 from ludora_backend.app.models.question import Question
 from ludora_backend.app.schemas.question import QuestionRead, QuestionCreate, TopicRead, TopicCreate
-from ludora_backend.app.api.dependencies import get_current_active_user # Optional for now
-from ludora_backend.app.services.question_generator import generate_random_math_question, generate_math_question_by_id
+# from ludora_backend.app.api.dependencies import get_current_active_user # Not used in this file currently
+from ludora_backend.app.services.question_generator import (
+    get_or_create_question_from_mathgenerator,
+    get_or_create_question_from_ai_word_problem
+)
 from ludora_backend.app.models.enums import QuestionType
 import random
 
 router = APIRouter()
 
 # Topic Endpoints (Admin/Helper)
+# TODO: Protect this endpoint - should only be accessible by admin/superuser.
 @router.post("/topics", response_model=TopicRead, tags=["Topics"])
 # @limiter.limit("...") # Example: Add if admin endpoints also need limiting
-async def create_topic(request: Request, topic_data: TopicCreate): # Add auth dependency later if needed
+async def create_topic(request: Request, topic_data: TopicCreate): # Add auth dependency (e.g. current_user: User = Depends(get_current_admin_user)))
     """
     Creates a new topic. (Admin/Helper endpoint)
     """
@@ -38,16 +42,17 @@ async def list_topics(request: Request): # Add auth dependency later if needed
     return await Topic.all()
 
 # Question Endpoints
+# TODO: Protect this endpoint - should only be accessible by admin/superuser.
 @router.post("/questions", response_model=QuestionRead, tags=["Questions"])
 # @limiter.limit("...")
-async def create_custom_question(request: Request, question_data: QuestionCreate): # Add auth dependency later if needed
+async def create_custom_question(request: Request, question_data: QuestionCreate): # Add auth dependency (e.g. current_user: User = Depends(get_current_admin_user)))
     """
     Creates a new custom question. (Admin/Helper endpoint for custom questions)
     """
     # Ensure topic exists if topic_id is provided
     if question_data.topic_id and not await Topic.exists(id=question_data.topic_id):
         raise HTTPException(status_code=404, detail=f"Topic with id {question_data.topic_id} not found.")
-        
+
     new_question = await Question.create(**question_data.model_dump())
     await new_question.fetch_related('topic') # Ensure topic is loaded for the response
     return new_question
@@ -58,65 +63,52 @@ async def get_generated_question(
     request: Request, # Added Request parameter
     topic_id: Optional[int] = None,
     difficulty: Optional[int] = Query(None, ge=1, le=5), # Keep difficulty for future use
-    question_type: QuestionType = Query(QuestionType.MATH_GENERATOR) # Default to MATH_GENERATOR
+    question_type: QuestionType = Query(QuestionType.MATH_GENERATOR), # Default to MATH_GENERATOR
+    # Add keywords for AI Word Problem, optional
+    keywords: Optional[List[str]] = Query(None, description="Keywords for AI Word Problem generation")
 ):
     """
     Generates a question or fetches one based on criteria.
-    Primarily uses mathgenerator for now.
+    Supports MATH_GENERATOR, AI_WORD_PROBLEM, and custom types.
     """
+    question: Optional[Question] = None
+
     if question_type == QuestionType.MATH_GENERATOR:
-        mathgen_problem_id = None
+        mathgen_problem_id_to_use: Optional[int] = None
         if topic_id:
             topic = await Topic.get_or_none(id=topic_id)
             if topic and topic.mathgenerator_topic_ids:
-                # Filter out any non-integer IDs from JSON, though they should be ints
                 valid_ids = [pid for pid in topic.mathgenerator_topic_ids if isinstance(pid, int)]
                 if valid_ids:
-                    mathgen_problem_id = random.choice(valid_ids)
-        
-        # If specific topic ID didn't yield a mathgen_problem_id, or no topic_id was given
-        if mathgen_problem_id is None:
-            generated_q_data = generate_random_math_question()
-        else:
-            # Use the specific mathgen_problem_id if found from topic
-            generated_q_data = generate_random_math_question(topic_code=mathgen_problem_id)
+                    mathgen_problem_id_to_use = random.choice(valid_ids)
 
-        if not generated_q_data:
-            raise HTTPException(status_code=404, detail="Failed to generate math question from mathgenerator.")
-
-        # Check if this question (by mathgenerator_problem_id and text) already exists to avoid duplicates
-        existing_question = await Question.get_or_none(
-            mathgenerator_problem_id=generated_q_data["problem_id"],
-            question_text=generated_q_data["problem"]
+        question = await get_or_create_question_from_mathgenerator(
+            mathgen_problem_id=mathgen_problem_id_to_use,
+            topic_id_for_new_question=topic_id,
+            difficulty_for_new_question=difficulty
         )
 
-        if existing_question:
-            await existing_question.fetch_related('topic')
-            return existing_question
+    elif question_type == QuestionType.AI_WORD_PROBLEM:
+        if not topic_id:
+            raise HTTPException(status_code=400, detail="topic_id is required for AI_WORD_PROBLEM generation.")
 
-        # Create a new Question record
-        # Guess difficulty if not provided, or use the provided one.
-        # Assign topic if a specific topic_id led to this generation.
-        question_create_data = {
-            "topic_id": topic_id if mathgen_problem_id else None, # Link topic if it was used to select mathgen_id
-            "difficulty_level": difficulty or random.randint(1, 3), # Default/random difficulty
-            "question_text": generated_q_data["problem"],
-            "answer_text": generated_q_data["solution"],
-            "question_type": QuestionType.MATH_GENERATOR,
-            "mathgenerator_problem_id": generated_q_data["problem_id"],
-        }
-        new_question = await Question.create(**question_create_data)
-        await new_question.fetch_related('topic')
-        return new_question
+        # Use provided difficulty or a default random one if not specified for AI questions.
+        # This is consistent with how MATH_GENERATOR questions are handled in the service if difficulty isn't passed.
+        difficulty_to_use = difficulty or random.randint(1, 3)
+
+        question = await get_or_create_question_from_ai_word_problem(
+            topic_id=topic_id,
+            difficulty_level=difficulty_to_use,
+            keywords=keywords or []
+        )
 
     elif question_type == QuestionType.CUSTOM_TEMPLATE or question_type == QuestionType.CUSTOM_STATIC:
-        # Basic placeholder for custom questions
         query = Question.filter(question_type=question_type)
         if topic_id:
             query = query.filter(topic_id=topic_id)
         if difficulty:
             query = query.filter(difficulty_level=difficulty)
-        
+
         # Fetch a random question matching criteria
         # .first() might not be random. For true random, other techniques are needed.
         # For now, this is a simplified fetch.

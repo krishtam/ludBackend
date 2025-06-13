@@ -2,11 +2,11 @@ import asyncio
 import json # json.dumps will be used for storing list of ints as JSON string in DB
 from tortoise import Tortoise, run_async
 
-# Assuming the script is run from the 'ludora_backend' directory,
-# or that the PYTHONPATH is set up to find 'app'
-from app.models.topic import Topic
-from app.core.db import TORTOISE_ORM_CONFIG as APP_DB_CONFIG # Using existing config structure
-from app.core.config import settings # To get the DATABASE_URL
+# Imports assuming the script is run as a module from the parent directory of 'ludora_backend'
+# or that 'ludora_backend' is in PYTHONPATH.
+from ludora_backend.app.models.topic import Topic
+from ludora_backend.app.core.db import TORTOISE_ORM_CONFIG as APP_DB_CONFIG
+from ludora_backend.app.core.config import settings
 
 # Comprehensive Curriculum Data using mathgenerator IDs 0-125
 # This is a best-effort categorization.
@@ -138,12 +138,12 @@ async def main():
     Main function to initialize Tortoise and run the seeder.
     """
     print(f"Using Database URL: {settings.DATABASE_URL}")
-    
+
     # Use the same model loading structure as the main app if possible,
     # ensuring all models involved (directly or via relations) are known.
     # For this script, primarily 'app.models.topic' and 'aerich.models' are essential.
     # The original APP_DB_CONFIG['apps']['models']['models'] contains all app models.
-    
+
     DB_CONFIG_FOR_SEEDER = {
          "connections": {"default": settings.DATABASE_URL},
          "apps": {
@@ -160,12 +160,13 @@ async def main():
     # However, for a seeder script, ensuring the table exists can be useful,
     # especially if it's run in an environment where migrations might not have run yet.
     # If Aerich is the sole source of truth for schema, this might be omitted or conditional.
-    # await Tortoise.generate_schemas(safe=True) # safe=True won't drop existing tables/columns
+    # For a seeder script, it's often helpful to ensure schemas exist.
+    await Tortoise.generate_schemas(safe=True) # safe=True won't drop existing tables/columns
 
-    print("Database initialized for seeder.")
-    
+    print("Database initialized for seeder and schemas ensured/generated.")
+
     await seed_topics()
-    
+
     await Tortoise.close_connections()
     print("Database connections closed.")
 

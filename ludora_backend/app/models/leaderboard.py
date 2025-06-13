@@ -14,14 +14,14 @@ class Leaderboard(Model):
     score_type = fields.CharEnumField(ScoreType, max_length=50) # Max length to accommodate enum value strings
     timeframe = fields.CharEnumField(Timeframe, max_length=50) # Max length
     minigame = fields.ForeignKeyField(
-        'models.Minigame', 
-        null=True, 
+        'models.Minigame',
+        null=True,
         on_delete=fields.CASCADE, # Or SET_NULL if leaderboard should persist if minigame is deleted
         description="Link to minigame if score_type is minigame-specific"
     )
     topic = fields.ForeignKeyField(
-        'models.Topic', 
-        null=True, 
+        'models.Topic',
+        null=True,
         on_delete=fields.CASCADE, # Or SET_NULL
         description="Link to topic if score_type is topic-specific"
     )

@@ -34,7 +34,7 @@ async def create_user_profile(
 ) -> None:
     if created:
         # Lazy import to avoid circular dependencies if UserProfile also imports User
-        from ludora_backend.app.models.profile import UserProfile 
+        from ludora_backend.app.models.profile import UserProfile
         await UserProfile.create(user=instance)
         # Optional: print a confirmation or log this event
         print(f"UserProfile created for new user {instance.username} (ID: {instance.id})")

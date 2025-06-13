@@ -15,11 +15,11 @@ def test_password_hashing():
 def test_jwt_token_creation_decoding():
     user_id = "test_user_sub_1"
     token_data = {"sub": user_id}
-    
+
     # Access token
     access_token = create_access_token(data=token_data)
     decoded_payload = decode_token(access_token)
-    
+
     assert decoded_payload is not None
     assert decoded_payload.sub == user_id
     # Check if 'exp' is present and is a future timestamp
@@ -39,7 +39,7 @@ def test_jwt_token_creation_decoding():
 def test_expired_jwt_token():
     user_id = "test_user_sub_expired"
     token_data = {"sub": user_id}
-    
+
     # Create an already expired access token
     # timedelta is negative, so token is created for the past
     expired_access_token = create_access_token(data=token_data, expires_delta=timedelta(seconds=-3600))
@@ -56,7 +56,7 @@ def test_invalid_jwt_token():
     # Token with valid structure but wrong signature/secret
     user_id = "test_user_sub_invalid_sig"
     token_data = {"sub": user_id, "exp": datetime.now(timezone.utc) + timedelta(minutes=15)}
-    
+
     # Simulate a token encoded with a different key or algorithm (not easily done without re-encoding)
     # For simplicity, we'll assume decode_token handles various JWTError scenarios.
     # A more direct test for signature might involve manually creating a token with a different key.
@@ -69,7 +69,7 @@ def test_token_payload_without_sub():
     # Create a token that's technically valid JWT but misses the 'sub' claim
     # This requires manually crafting the payload for jwt.encode
     from jose import jwt # Import directly for this specific test case
-    
+
     payload_no_sub = {
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         # "sub": "some_user" # 'sub' is missing
@@ -80,7 +80,7 @@ def test_token_payload_without_sub():
 def test_token_payload_without_exp():
     # Create a token that's technically valid JWT but misses the 'exp' claim
     from jose import jwt # Import directly for this specific test case
-    
+
     payload_no_exp = {
         "sub": "some_user"
         # "exp": ... # 'exp' is missing

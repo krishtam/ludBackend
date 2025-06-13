@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 # Assuming TopicRead is in a sibling file 'question.py' within the same 'schemas' directory
-from .question import TopicRead 
+from .question import TopicRead
 
 # Minigame Schemas
 class MinigameBase(BaseModel):
@@ -36,7 +36,7 @@ class MinigameRead(MinigameBase):
     class Config:
         orm_mode = True
         # Pydantic V2 uses from_attributes instead of orm_mode
-        # from_attributes = True 
+        # from_attributes = True
 
 # MinigameProgress Schemas
 class MinigameProgressBase(BaseModel):

@@ -35,7 +35,7 @@ class LeaderboardRead(LeaderboardBase):
     class Config:
         orm_mode = True
         # Pydantic V2 uses from_attributes instead of orm_mode
-        # from_attributes = True 
+        # from_attributes = True
 
 class LeaderboardEntryRead(BaseModel):
     """

@@ -4,12 +4,15 @@ Main application file for Ludora backend.
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware # Import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from slowapi import Limiter, _rate_limit_exceeded_handler # Use _rate_limit_exceeded_handler for default behavior or define custom
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded # Import this for the handler
+# Remove direct Limiter import from slowapi here, will import the instance from app.core.limiter
+from slowapi import _rate_limit_exceeded_handler
+# from slowapi.util import get_remote_address # No longer needed here
+from slowapi.errors import RateLimitExceeded # Still needed for the exception handler key
 
+from ludora_backend.app.core.limiter import limiter # Import the shared limiter instance
 from ludora_backend.app.api.v1.endpoints import auth as auth_router
 from ludora_backend.app.api.v1.endpoints import users as user_profile_router
 from ludora_backend.app.api.v1.endpoints import progress as learning_progress_router
@@ -20,6 +23,10 @@ from ludora_backend.app.api.v1.endpoints import quizzes as quizzes_router
 from ludora_backend.app.api.v1.endpoints import analytics as analytics_router
 from ludora_backend.app.api.v1.endpoints import minigames as minigames_router
 from ludora_backend.app.api.v1.endpoints import leaderboards as leaderboards_router
+from ludora_backend.app.api.v1.endpoints import ai_diagnostics as ai_diagnostics_router
+from ludora_backend.app.api.v1.endpoints import ai_tools as ai_tools_router
+from ludora_backend.app.api.v1.endpoints import ai_tutoring as ai_tutoring_router
+from ludora_backend.app.api.v1.endpoints import quests as quests_router # Import new Quests router
 from ludora_backend.app.core.db import TORTOISE_ORM_CONFIG
 from ludora_backend.app.exceptions import http_exception_handler, general_exception_handler, validation_exception_handler # Import handlers
 from tortoise import Tortoise
@@ -58,17 +65,33 @@ exception_handlers_config = {
 # # If using custom handler, update exception_handlers_config:
 # # exception_handlers_config[RateLimitExceeded] = custom_rate_limit_exceeded_handler
 
-# Initialize Limiter
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+# Limiter is now imported from app.core.limiter, so direct initialization is removed.
 
 app = FastAPI(
-    title="Ludora Backend", 
+    title="Ludora Backend",
     lifespan=lifespan,
     exception_handlers=exception_handlers_config # Register handlers
 )
 
 # Add limiter to app state
 app.state.limiter = limiter
+
+# Add CORSMiddleware
+# TODO: Configure origins properly for production.
+origins = [
+    "http://localhost:3000", # Example: Local React/Vue frontend
+    "http://localhost:8080", # Example: Other local frontend
+    # "https://your-production-frontend.com", # Add your production frontend origin
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # Allows specific origins
+    # allow_origin_regex="http://localhost:*", # Example: Allow all localhost ports
+    allow_credentials=True, # Allows cookies to be included in requests
+    allow_methods=["*"],    # Allows all methods (GET, POST, PUT, etc.)
+    allow_headers=["*"],    # Allows all headers
+)
 
 # Authentication router
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -99,6 +122,18 @@ app.include_router(minigames_router.router, prefix="/api/v1", tags=["Minigames"]
 
 # Leaderboards router
 app.include_router(leaderboards_router.router, prefix="/api/v1", tags=["Leaderboards"])
+
+# AI Diagnostics router
+app.include_router(ai_diagnostics_router.router, prefix="/api/v1", tags=["AI Diagnostics"])
+
+# AI Tools router (for paraphrasing, etc.)
+app.include_router(ai_tools_router.router, prefix="/api/v1", tags=["AI Tools"])
+
+# AI Tutoring router
+app.include_router(ai_tutoring_router.router, prefix="/api/v1", tags=["AI Tutoring Agent"])
+
+# Quests router
+app.include_router(quests_router.router, prefix="/api/v1", tags=["Quests"])
 
 
 # Placeholder for root endpoint, can be expanded later

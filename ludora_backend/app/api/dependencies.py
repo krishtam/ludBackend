@@ -23,12 +23,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     token_data = decode_token(token)
-    
+
     if not token_data or not token_data.sub:
         raise credentials_exception
-    
+
     try:
         user_id = int(token_data.sub)
     except ValueError:
@@ -36,7 +36,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         raise credentials_exception
 
     user = await User.get_or_none(id=user_id)
-    
+
     if user is None:
         # Changed to 401 as per typical OAuth2 flow for invalid token/subject.
         # If the token is valid but user doesn't exist (e.g. deleted after token issuance),

@@ -15,8 +15,8 @@ class Quiz(Model):
     completed_at = fields.DatetimeField(null=True)
     score = fields.FloatField(null=True)
     questions = fields.ManyToManyField(
-        'models.Question', 
-        through='quizquestionlink', 
+        'models.Question',
+        through='quizquestionlink',
         related_name='quizzes',
         # Specify custom on_delete for the M2M relationship if needed,
         # though CASCADE is typical for the link table's FKs.

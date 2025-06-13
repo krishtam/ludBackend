@@ -34,7 +34,7 @@ async def update_my_profile(
     If a profile does not exist, it will be created with the provided data.
     """
     profile = await UserProfile.get_or_none(user_id=current_user.id) # Use user_id for direct lookup
-    
+
     update_data = profile_in.model_dump(exclude_unset=True)
 
     if not profile:
@@ -47,5 +47,5 @@ async def update_my_profile(
         for key, value in update_data.items():
             setattr(profile, key, value)
         await profile.save()
-        
+
     return profile

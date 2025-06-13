@@ -19,7 +19,7 @@ from ludora_backend.app.schemas.quiz import QuizRead, QuizCreateRequest, QuizSub
 from ludora_backend.app.api.dependencies import get_current_active_user
 from ludora_backend.app.services.question_generator import generate_random_math_question
 from ludora_backend.app.models.enums import QuestionType
-from ludora_backend.app.main import limiter # Import the limiter instance
+from ludora_backend.app.core.limiter import limiter # Corrected import
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ async def generate_quiz(
 
     for _ in range(quiz_params.num_questions): # Iterate for the number of questions needed
         current_slot_question: Optional[Question] = None
-        
+
         # Build query for existing questions, excluding already selected ones
         query_filters = []
         if selected_question_ids: # Exclude already picked questions
@@ -49,7 +49,7 @@ async def generate_quiz(
             query_filters.append(Q(topic_id__in=quiz_params.topic_ids))
         if quiz_params.difficulties:
             query_filters.append(Q(difficulty_level__in=quiz_params.difficulties))
-        
+
         valid_question_types_enums = []
         if quiz_params.question_types:
             for qt_str in quiz_params.question_types:
@@ -63,7 +63,7 @@ async def generate_quiz(
         # Attempt to fetch from existing questions first
         if query_filters: # Only query if there are some filters (beyond excluding selected)
             # Fetch more than 1 to allow random choice if multiple match
-            potential_questions = await Question.filter(*query_filters).limit(10) 
+            potential_questions = await Question.filter(*query_filters).limit(10)
             if potential_questions:
                 current_slot_question = random.choice(potential_questions)
 
@@ -79,7 +79,7 @@ async def generate_quiz(
                 if candidate_topics and candidate_topics.mathgenerator_topic_ids:
                     mathgen_topic_code = random.choice(candidate_topics.mathgenerator_topic_ids)
                     topic_id_for_mathgen = candidate_topics.id
-            
+
             q_data = generate_random_math_question(topic_code=mathgen_topic_code)
             if q_data:
                 # Check if this generated question already exists to avoid near duplicates from mathgen
@@ -102,7 +102,7 @@ async def generate_quiz(
                         difficulty_level=difficulty_for_mathgen,
                         topic_id=topic_id_for_mathgen # Link to topic if mathgen ID came from it
                     )
-        
+
         if not current_slot_question:
             # If after all attempts, no suitable unique question is found for this slot
             raise HTTPException(status_code=400, detail=f"Could not find or generate a unique question for slot {len(final_selected_questions_for_quiz) + 1} based on the criteria. Try broader criteria.")
@@ -131,7 +131,7 @@ async def get_quiz(request: Request, quiz_id: int, current_user: User = Depends(
         if await Quiz.exists(id=quiz_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this quiz")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
-    
+
     # Efficiently fetch related data for the response model
     # QuizRead -> questions: List[QuizQuestionLinkRead]
     # QuizQuestionLinkRead -> question: QuestionRead
@@ -156,19 +156,19 @@ async def submit_quiz(
         if await Quiz.exists(id=quiz_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to submit this quiz")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
-    
+
     if quiz.completed_at:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Quiz already completed")
 
     # Fetch all question links for this quiz along with their actual questions
     quiz_links = await QuizQuestionLink.filter(quiz_id=quiz.id).prefetch_related('question')
-    
+
     if not quiz_links:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Quiz has no questions associated with it.")
 
     total_questions_in_quiz = len(quiz_links)
     correct_answers_count = 0
-    
+
     submitted_answers_map = {ans.question_id: ans.answer for ans in submission_data.answers}
 
     for qql in quiz_links:
@@ -178,7 +178,7 @@ async def submit_quiz(
         if user_answer_str is not None:
             # Basic answer comparison (case-insensitive, strips whitespace)
             is_correct = (question_model.answer_text.strip().lower() == user_answer_str.strip().lower())
-            
+
             qql.user_answer = user_answer_str
             qql.is_correct = is_correct
             await qql.save()

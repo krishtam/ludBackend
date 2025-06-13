@@ -13,15 +13,16 @@ from ludora_backend.app.api.dependencies import get_current_active_user # If nee
 router = APIRouter()
 
 # Admin/Helper Endpoints
+# TODO: Protect this endpoint - should only be accessible by admin/superuser.
 @router.post("/leaderboards", response_model=LeaderboardRead, status_code=status.HTTP_201_CREATED)
-async def create_leaderboard(leaderboard_data: LeaderboardCreate): # Admin auth would go here
+async def create_leaderboard(leaderboard_data: LeaderboardCreate): # Add auth dependency (e.g. current_user: User = Depends(get_current_admin_user)))
     """
     Creates a new leaderboard definition. (Admin/Helper endpoint)
     """
     # Check for existing leaderboard by name
     if await Leaderboard.exists(name=leaderboard_data.name):
         raise HTTPException(status_code=400, detail=f"Leaderboard with name '{leaderboard_data.name}' already exists.")
-    
+
     # Validate linked IDs if present
     if leaderboard_data.score_type == ScoreType.MINIGAME_HIGH_SCORE and not leaderboard_data.minigame_id:
         raise HTTPException(status_code=400, detail="minigame_id is required for MINIGAME_HIGH_SCORE leaderboards.")
@@ -47,11 +48,12 @@ async def list_leaderboards(
         filters["score_type"] = score_type
     if timeframe:
         filters["timeframe"] = timeframe
-    
+
     return await Leaderboard.filter(**filters)
 
+# TODO: Protect this endpoint - should only be accessible by admin/superuser.
 @router.post("/leaderboards/{leaderboard_id}/update", status_code=status.HTTP_202_ACCEPTED)
-async def trigger_leaderboard_update(leaderboard_id: int): # Admin auth would go here
+async def trigger_leaderboard_update(leaderboard_id: int): # Add auth dependency (e.g. current_user: User = Depends(get_current_admin_user)))
     """
     Manually triggers an update for a specific leaderboard. (Admin/Helper endpoint)
     """
@@ -85,6 +87,6 @@ async def get_leaderboard_entries_api( # Renamed to avoid conflict with service 
     """
     if not await Leaderboard.exists(id=leaderboard_id, is_active=True):
         raise HTTPException(status_code=404, detail="Active leaderboard not found.")
-        
+
     entries = await leaderboard_service.get_leaderboard_entries(leaderboard_id, limit)
     return entries

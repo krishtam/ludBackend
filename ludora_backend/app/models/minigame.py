@@ -12,10 +12,10 @@ class Minigame(Model):
     name = fields.CharField(max_length=150, unique=True)
     description = fields.TextField(null=True)
     topic_focus = fields.ForeignKeyField(
-        'models.Topic', 
-        related_name='minigames', 
-        on_delete=fields.SET_NULL, 
-        null=True, 
+        'models.Topic',
+        related_name='minigames',
+        on_delete=fields.SET_NULL,
+        null=True,
         description="Primary topic this minigame focuses on"
     )
     question_count_per_session = fields.IntField(default=10, description="Default number of questions per minigame session")

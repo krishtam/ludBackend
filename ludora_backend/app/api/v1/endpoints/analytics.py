@@ -20,7 +20,7 @@ async def get_user_recommendations(
     Provides personalized recommendations based on user's performance analysis.
     """
     weak_topic_analysis_results = await analyze_user_performance(current_user)
-    
+
     recommended_topics_response: List[RecommendedTopic] = []
     for result in weak_topic_analysis_results:
         # The 'topic_model' key from analyze_user_performance holds the Topic ORM instance.
@@ -32,7 +32,7 @@ async def get_user_recommendations(
         # it can often be done with TopicRead(**result['topic_model'].__dict__) but this is not robust.
         # The safest is usually `TopicRead.model_validate(orm_instance)` for Pydantic v2 or `TopicRead.from_orm(orm_instance)` for Pydantic v1.
         # Tortoise ORM models are Pydantic-compatible, so this should work.
-        
+
         topic_orm_instance = result['topic_model'] # Renamed from 'topic' to 'topic_model' in analytics service
         topic_read_schema = TopicRead.model_validate(topic_orm_instance) # Pydantic v2
         # For Pydantic v1, it would be: topic_read_schema = TopicRead.from_orm(topic_orm_instance)
@@ -46,7 +46,7 @@ async def get_user_recommendations(
                 attempts=result['attempts']
             )
         )
-        
+
     # Placeholder for suggested quizzes - can be enhanced later
     suggested_quizzes_list = []
     if recommended_topics_response:

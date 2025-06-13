@@ -38,7 +38,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """
     # Log the validation errors for debugging if necessary
     # logger.warning(f"Request validation failed for {request.method} {request.url}: {exc.errors()}")
-    
+
     # Example of a more customized error structure, could also use exc.errors() directly
     # error_details = []
     # for error in exc.errors():

@@ -15,19 +15,20 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = "sqlite://./ludora_test.db"
     DB_MODELS: list[str] = [
-        "aerich.models", 
-        "app.models.user", 
-        "app.models.profile", 
-        "app.models.progress",
-        "app.models.item",
-        "app.models.inventory",
-        "app.models.purchase",
-        "app.models.topic",
-        "app.models.question",
-        "app.models.quiz",
-        "app.models.minigame", # Added minigame model
-        "app.models.leaderboard" # Added leaderboard model
-    ] # Add aerich.models for migrations and new models
+        "aerich.models",
+        "ludora_backend.app.models.user",
+        "ludora_backend.app.models.profile",
+        "ludora_backend.app.models.progress",
+        "ludora_backend.app.models.item",
+        "ludora_backend.app.models.inventory",
+        "ludora_backend.app.models.purchase",
+        "ludora_backend.app.models.topic",
+        "ludora_backend.app.models.question",
+        "ludora_backend.app.models.quiz",
+        "ludora_backend.app.models.minigame",
+        "ludora_backend.app.models.leaderboard",
+        "ludora_backend.app.models.quest" # Added quest model
+    ] # Fully qualified model paths
 
     class Config:
         env_file = ".env"

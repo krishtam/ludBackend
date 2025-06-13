@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional
 
 # Assuming QuestionRead is in a sibling file 'question.py' within the same 'schemas' directory
-from .question import QuestionRead 
+from .question import QuestionRead
 
 class QuizQuestionLinkRead(BaseModel):
     """

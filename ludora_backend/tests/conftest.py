@@ -104,3 +104,56 @@ async def client(db_setup_module): # Depend on db_setup_module to ensure DB is u
     # Teardown for function-scoped client (if any needed beyond db_setup_module)
     # If db_setup_module was function-scoped, close_test_db would be here.
     # Since db_setup_module is module-scoped, db connections are closed after all tests in the module.
+
+from ludora_backend.app.core.security import create_access_token, hash_password # Added hash_password
+from ludora_backend.app.models.user import User
+from tortoise.exceptions import IntegrityError # To handle potential race conditions or duplicate creation
+
+@pytest.fixture(scope="module")
+async def test_user(db_setup_module): # Depends on DB being up
+    user_data = {
+        "username": "test_fixture_user",
+        "email": "testfixture@example.com",
+        "hashed_password": hash_password("fixturepass") # Hash the password
+    }
+    try:
+        # Use get_or_create to handle cases where user might exist from a previous (failed) test run
+        # if tests within the same module run sequentially and don't clean up this specific user.
+        # However, with module-scoped DB setup, this user will persist across all tests in a module.
+        # If function-scoped DB isolation is needed, this fixture would also be function-scoped.
+        user, created = await User.get_or_create(email=user_data["email"], defaults=user_data)
+        if created:
+            print(f"Test user {user.username} created.")
+        else:
+            # If not created, it means it existed. Update if necessary or just use it.
+            # For simplicity, we'll assume using the existing one is fine.
+            # If specific fields need to be reset, an update would be needed here.
+            print(f"Test user {user.username} already existed, using existing.")
+    except IntegrityError: # Fallback if get_or_create still hits a race condition or unique constraint issue
+        print("IntegrityError, attempting to fetch existing test_fixture_user.")
+        user = await User.get(email=user_data["email"])
+
+    # Ensure profile is created if post_save signal is working
+    # For an integration test setup, this should happen automatically via the signal
+    # No need to manually create UserProfile here normally.
+    # If the signal isn't firing in tests (e.g. due to how Tortoise is initialized or signals are registered),
+    # that would be a separate issue to investigate.
+    # For now, assume signal works.
+
+    return user
+
+@pytest.fixture(scope="function") # Make authenticated_client function-scoped for header isolation
+async def authenticated_client(client: AsyncClient, test_user: User): # Use the existing client and modify its headers
+    token_data = {"sub": str(test_user.id)}
+    access_token = create_access_token(data=token_data)
+
+    # Create a new client instance or modify the existing one's headers for this test function
+    # Modifying the passed 'client' fixture directly will affect its headers for that specific test.
+    # If client was function-scoped itself, this is fine.
+    # If client was module/session scoped, this would share headers.
+    # Current `client` fixture is function-scoped, so this is okay.
+
+    client.headers.update({"Authorization": f"Bearer {access_token}"})
+    yield client
+    # Clean up headers after test if necessary, though function scope of client handles this.
+    client.headers.pop("Authorization", None)
